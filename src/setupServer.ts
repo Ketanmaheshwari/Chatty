@@ -3,11 +3,16 @@ import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import hpp from 'hpp';
-import cookiersession from 'cookie-session';
+import cookiesession from 'cookie-session';
 import HTTP_STATUS from 'http-status-codes';
 import 'express-async-errors';
+import {Server} from 'socket.io';
+import {createClient} from 'redis';
+import {createAdapter} from '@socket.io/redis-adapter';
 import compression from 'compression';
-import { promises } from 'dns';
+// import { promises } from 'dns';
+import {config} from './config';
+import { server } from 'typescript';
 
 const SERVER_PORT = 5000;
 
@@ -29,11 +34,11 @@ export class ChattyServer{
 
     private securityMiddleware(app:Application):void{
         app.use(
-            cookiersession({
+            cookiesession({
                 name: 'session',
-                keys: ['test1','test2'],
+                keys: [config.SECRET_KEY_ONE!,config.SECRET_KEY_TWO!],
                 maxAge:24*7*3600000,
-                secure:false
+                secure:config.NODE_ENV!=='development'
             })
         );
 
@@ -41,7 +46,7 @@ export class ChattyServer{
         app.use(helmet());
         app.use(
             cors({
-                origin:'*',
+                origin:config.CLIENT_URL,
                 credentials:true,
                 optionsSuccessStatus:200,
                 methods:['GET','POST','PUT','DELETE','OPTIONS']
@@ -67,19 +72,40 @@ export class ChattyServer{
     private async startServer(app:Application):Promise<void>{
         try{
             const httpServer:http.Server= new http.Server(app);
+            const socketIo:Server=await this.createSocketIO(httpServer);
             this.startHttpServer(httpServer);
+            this.socketIOConnections(socketIo);
         }catch(error){
             console.log(error);
         }
     }
 
 
-    private createSocketIO(httpServer:http.Server):void{}
+    private async createSocketIO(httpServer:http.Server):Promise<Server>{
+        const io:Server=new Server(httpServer,{
+            cors:{
+                origin:config.CLIENT_URL,
+                methods:['GET','POST','PUT','DELETE','OPTIONS'],
+            }
+        });
+
+        const pubClient=createClient({url:config.REDIS_HOST});
+        const subClient=pubClient.duplicate();
+
+        await Promise.all([pubClient.connect(),subClient.connect()])
+       
+            io.adapter(createAdapter(pubClient,subClient));
+            console.log('Connected to redis successfully');
+
+            return io;
+        }
 
 
     private startHttpServer(httpServer:http.Server):void{
+        console.log(`Server has started with process ${process.pid}`);
         httpServer.listen(SERVER_PORT,()=>{
              console.log(`Server running on port ${SERVER_PORT}`);
         });
     }
+    private socketIOConnections(io:Server):void{}
 }
