@@ -59,7 +59,7 @@ export abstract class CustomError extends Error {
  * Validation error when user input is invalid
  * (e.g., missing fields, wrong email format).
  */
-export class JoinValidationError extends CustomError {
+export class joiRequestValidationError extends CustomError {
   statusCode = HTTP_STATUS.BAD_REQUEST; // 400
   status = 'error';
 

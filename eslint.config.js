@@ -34,6 +34,7 @@ module.exports = [
         0,
         { anonymous: "always", named: "always" },
       ],
+       "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }], // Ignore unused variables that start with _
       camelcase: 0,
       "no-return-assign": 0,
       quotes: ["error", "single"],
